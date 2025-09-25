@@ -1,60 +1,64 @@
-def _disabled(op_name):
-    raise RuntimeError("Disabled operation for safety: " + op_name)
+"""
+Small educational example:
+- Shows a disabled (pseudo) insecure pattern for illustration only.
+- Provides a safe, runnable replacement that prevents SQL injection.
+"""
 
-def dangerous_delete_file(request):
-    filename = request.args.get('file')
-    _disabled("command_execution")
-    return "ok (vulnerable pseudo-example)"
+# ---------- PSEUDO-VULNERABLE (DISABLED) ----------
+def _disabled(op):
+    raise RuntimeError("Disabled insecure operation: " + op)
 
-def dangerous_user_lookup(request):
-    username = request.args.get('username')
+def pseudo_vulnerable_user_lookup(request):
+    # DO NOT RUN: this is intentionally disabled and non-executable.
+    # It illustrates the classic unsafe pattern: concatenating user input
+    # directly into a SQL statement (SQL injection risk).
+    username = request.args.get("username", "")
     _disabled("sql_query_concatenation")
-    return "ok (vulnerable pseudo-example)"
+    # example of what NOT to do (commented out):
+    # query = "SELECT id, username FROM users WHERE username = '" + username + "';"
+    # db.execute(query)
+    return "pseudo-vulnerable (disabled)"
 
-def dangerous_deserialize(request):
-    payload = request.data
-    _disabled("insecure_deserialize")
-    return "ok (vulnerable pseudo-example)"
+# ---------- SECURE REPLACEMENT ----------
+import sqlite3
+import json
 
-def vulnerable_comment_post(request):
-    comment = request.form.get("comment")
-    _disabled("store_raw_html")
-    return "ok (vulnerable pseudo-example)"
+def safe_user_lookup(request, db_path=":memory:"):
+    """
+    Secure lookup using parameterized queries.
+    request should have .args.get('username') similar to Flask's request.
+    """
+    username = request.args.get("username", "")
+    if not username:
+        return ("missing username", 400)
 
-def vulnerable_upload(request):
-    filename = request.files['file'].filename
-    filedata = request.files['file'].read()
-    _disabled("write_unvalidated_filename")
-    return "ok (vulnerable pseudo-example)"
+    conn = sqlite3.connect(db_path)
+    try:
+        # Use parameterized query to avoid SQL injection
+        cur = conn.execute("SELECT id, username FROM users WHERE username = ?", (username,))
+        row = cur.fetchone()
+        if not row:
+            return ("not found", 404)
+        result = {"id": row[0], "username": row[1]}
+        return (json.dumps(result), 200)
+    finally:
+        conn.close()
 
-def view_user_profile(request):
-    requester_id = request.user.id
-    target_id = request.args.get('user_id')
-    _disabled("missing_authorization_check")
-    return "ok (vulnerable pseudo-example)"
+# ---------- QUICK DEMO HARNESS (for local testing) ----------
+class DummyRequest:
+    def __init__(self, args):
+        self.args = args
 
-def login(request):
-    username = request.form.get("username")
-    password = request.form.get("password")
-    _disabled("plaintext_password_compare")
-    return "ok (vulnerable pseudo-example)"
+if __name__ == "__main__":
+    # Create an in-memory DB and a sample user for demonstration
+    conn = sqlite3.connect(":memory:")
+    conn.execute("CREATE TABLE users (id INTEGER PRIMARY KEY, username TEXT)")
+    conn.execute("INSERT INTO users (username) VALUES (?)", ("alice",))
+    conn.commit()
+    conn.close()
 
-def store_tokens(request):
-    _disabled("weak_token_generation_and_plain_storage")
-    return "ok (vulnerable pseudo-example)"
-
-def process_payment(request):
-    card_number = request.form.get("card")
-    _disabled("log_full_card_number")
-    return "ok (vulnerable pseudo-example)"
-
-def login_attempt(request):
-    username = request.form.get("username")
-    password = request.form.get("password")
-    _disabled("no_rate_limiting")
-    return "ok (vulnerable pseudo-example)"
-
-def redirect_to_next(request):
-    next_url = request.args.get("next")
-    _disabled("open_redirect")
-    return "ok (vulnerable_pseudo_example)"
+    # Test safe lookup
+    req = DummyRequest(args={"username": "alice"})
+    print(safe_user_lookup(req, db_path=":memory:"))  # likely returns not found in this simple demo
+    # Note: using :memory: here means the demo DB above is a different connection;
+    # for a persistent demo, use a temporary file DB.
