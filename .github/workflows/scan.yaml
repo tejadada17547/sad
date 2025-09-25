@@ -36,30 +36,25 @@ jobs:
           python -m pip install --upgrade pip
           if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
           if [ -f requirements-dev.txt ]; then pip install -r requirements-dev.txt; fi
-          # common dev tools if not already in requirements-dev.txt
           pip install --upgrade pytest flake8 bandit
 
       - name: Lint (flake8)
         run: |
-          # fail-fast if flake8 not configured; set exit 0 to avoid CI failure if you prefer warnings
           flake8 . --max-line-length=88
 
       - name: Security scan (bandit)
         run: |
-          # scan the repository for common Python security issues
           bandit -r . -q -lll
 
       - name: Initialize SQLite DB (for tests)
         run: |
-          # create or reset test DB and run your init_db() to create schema
-          python - <<'PY'
+          python - <<EOF
 import os
 os.environ.setdefault("BLOG_DATABASE", "test_blog.db")
-# Import your app module and call init_db (adjust import path if needed)
 from app_secure import init_db
 init_db()
 print("Initialized test DB: test_blog.db")
-PY
+EOF
 
       - name: Run tests (pytest)
         env:
