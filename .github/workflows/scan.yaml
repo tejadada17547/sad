@@ -7,7 +7,7 @@ on:
     branches: [ main, master ]
 
 jobs:
-  build-and-test:
+  test:
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -21,47 +21,29 @@ jobs:
         uses: actions/setup-python@v4
         with:
           python-version: ${{ matrix.python-version }}
-          cache: 'pip'
 
-      - name: Cache pip
-        uses: actions/cache@v4
-        with:
-          path: ~/.cache/pip
-          key: ${{ runner.os }}-pip-${{ matrix.python-version }}-${{ hashFiles('**/requirements*.txt') }}
-          restore-keys: |
-            ${{ runner.os }}-pip-${{ matrix.python-version }}-
-
-      - name: Install dependencies
+      - name: Install dependencies (if any)
         run: |
           python -m pip install --upgrade pip
+          # If you have requirements files in future, this will install them.
           if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
           if [ -f requirements-dev.txt ]; then pip install -r requirements-dev.txt; fi
+          # Ensure common test/lint/security tools are available
           pip install --upgrade pytest flake8 bandit
 
       - name: Lint (flake8)
+        # adjust --max-line-length or add config file if you prefer
         run: |
+          # If you don't want lint failures to block CI initially, you can add "|| true"
           flake8 . --max-line-length=88
 
       - name: Security scan (bandit)
         run: |
-          # Recursively scan repository for common Python security issues
+          # Recursively scan repository for Python security issues
           bandit -r . -q -lll
-
-      - name: Initialize SQLite DB (for tests)
-        run: |
-          python -c 'import os; os.environ.setdefault("BLOG_DATABASE", "test_blog.db"); from app_secure import init_db; init_db(); print("Initialized test DB: test_blog.db")'
 
       - name: Run tests (pytest)
         env:
           FLASK_ENV: testing
-          FLASK_SECRET_KEY: test-secret
-          BLOG_DATABASE: test_blog.db
         run: |
           pytest -q
-
-      - name: Upload test DB (artifact, optional)
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: test-db
-          path: test_blog.db
