@@ -48,13 +48,13 @@ jobs:
 
       - name: Initialize SQLite DB (for tests)
         run: |
-          python - <<EOF
+          python -c "
 import os
-os.environ.setdefault("BLOG_DATABASE", "test_blog.db")
+os.environ.setdefault('BLOG_DATABASE', 'test_blog.db')
 from app_secure import init_db
 init_db()
-print("Initialized test DB: test_blog.db")
-EOF
+print('Initialized test DB: test_blog.db')
+"
 
       - name: Run tests (pytest)
         env:
