@@ -44,17 +44,12 @@ jobs:
 
       - name: Security scan (bandit)
         run: |
+          # Recursively scan repository for common Python security issues
           bandit -r . -q -lll
 
       - name: Initialize SQLite DB (for tests)
         run: |
-          python -c "
-import os
-os.environ.setdefault('BLOG_DATABASE', 'test_blog.db')
-from app_secure import init_db
-init_db()
-print('Initialized test DB: test_blog.db')
-"
+          python -c 'import os; os.environ.setdefault("BLOG_DATABASE", "test_blog.db"); from app_secure import init_db; init_db(); print("Initialized test DB: test_blog.db")'
 
       - name: Run tests (pytest)
         env:
